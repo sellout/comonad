@@ -72,6 +72,9 @@ import Control.Comonad.Trans.Class
 import Data.Foldable
 import Data.Traversable
 #endif
+#if MIN_VERSION_base(4,9,0)
+import Data.Functor.Classes
+#endif
 import Data.Functor.Identity
 #if !(MIN_VERSION_base(4,11,0))
 import Data.Semigroup
@@ -134,6 +137,7 @@ envTDataType = mkDataType "Control.Comonad.Trans.Env.EnvT" [envTConstr]
 
 type Env e = EnvT e Identity
 data EnvT e w a = EnvT e (w a)
+  deriving (Eq, Ord, Show)
 
 -- | Create an Env using an environment and a value
 env :: e -> a -> Env e a
@@ -144,6 +148,22 @@ runEnv (EnvT e (Identity a)) = (e, a)
 
 runEnvT :: EnvT e w a -> (e, w a)
 runEnvT (EnvT e wa) = (e, wa)
+
+#if MIN_VERSION_base(4,9,0)
+instance (Eq e, Eq1 w) => Eq1 (EnvT e w) where
+  liftEq eq (EnvT e1 wa1) (EnvT e2 wa2) = e1 == e2 && liftEq eq wa1 wa2
+
+instance (Ord e, Ord1 w) => Ord1 (EnvT e w) where
+  liftCompare comp (EnvT e1 wa1) (EnvT e2 wa2) = case compare e1 e2 of
+    EQ -> liftCompare comp wa1 wa2
+    r -> r
+
+instance (Show e, Show1 w) => Show1 (EnvT e w) where
+  liftShowsPrec sp sl p (EnvT e wa) =
+    showParen (p > 10)
+    $ showString "EnvT"
+    . foldMap (showString " " .) [showsPrec 11 e, liftShowsPrec sp sl 11 wa]
+#endif
 
 instance Functor w => Functor (EnvT e w) where
   fmap g (EnvT e wa) = EnvT e (fmap g wa)
